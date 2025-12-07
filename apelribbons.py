@@ -52,7 +52,7 @@ current_photo = ImageTk.PhotoImage(img)
 imageLabel = Label(root, image=current_photo)
 imageLabel.pack()
 
-ribbonPanel: ttk.Frame = ttk.Frame(root, padding=10)
+ribbonPanel = ttk.Frame(root, padding=10)
 ribbonPanel.pack(padx=10, pady=10, side=LEFT, anchor="nw")
 ttk.Label(ribbonPanel, text="Ribbons").pack(anchor="nw", side=TOP)
 
@@ -63,7 +63,7 @@ for ribbonName in ribbons.keys():
     checkbox.pack(anchor="nw", side=TOP)
     ribbonCheckboxStates[ribbonName] = state
 
-commendationPanel: ttk.Frame = ttk.Frame(root, padding=10)
+commendationPanel = ttk.Frame(root, padding=10)
 commendationPanel.pack(padx=10, pady=10, side=LEFT, anchor="nw")
 ttk.Label(commendationPanel, text="Commendations").pack(anchor="nw", side=TOP)
 
@@ -91,6 +91,7 @@ def generateButtonAction():
     nameText = "".join(character for character in nametapeEntry.get() if character.isalpha() or character == " ").upper() # convert to only uppercase letters and spaces
     goldenApel: bool = goldenApelState.get()
     
+    global img
     img = generateTShirtImage(selectedRibbons, selectedCommendations, nameText, goldenApel)
     photo = ImageOps.scale(img, 2)
     photo = ImageTk.PhotoImage(photo)
