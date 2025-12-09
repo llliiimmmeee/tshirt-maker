@@ -1,11 +1,14 @@
 import shirtmaker
 from PIL import Image as PILImage
-from PIL import ImageFont, ImageTk, ImageOps
+from PIL import ImageFont, ImageTk, ImageOps, PngImagePlugin
 from tkinter import * # type: ignore
 from tkinter import ttk, filedialog
+import json
 import os
 
 currentDir = os.path.dirname(__file__)
+
+shirtMeta = {}
 
 def generateTShirtImage(ribbons: list[PILImage.Image], commendations: list[PILImage.Image], nameText: str, goldenApel: bool) -> PILImage.Image:
     """Creates a t-shirt image from the awards and name provided, in the Apel awards style.
@@ -85,15 +88,62 @@ goldenApelState = BooleanVar()
 goldenApelCheckbox = ttk.Checkbutton(root, text="Golden Apel Medal", variable=goldenApelState)
 goldenApelCheckbox.pack(pady=10)
 
+def loadShirtFromMeta(shirt: PILImage.Image):
+    """Sets all the inputs to recreate a t-shirt from its metadata, allowing it to be edited.
+
+    Args:
+        shirt (PILImage.Image): The shirt to recreate, containing metadata.
+    """
+    metadata = shirt.getexif()
+    shirtdata = json.loads(metadata[PILImage.ExifTags.Base.ImageDescription])
+
+    for name, state in ribbonCheckboxStates.items():
+        if name in shirtdata["ribbons"]:
+            state.set(True)
+        else:
+            state.set(False)
+
+    for name, state in commendationCheckboxStates.items():
+        if name in shirtdata["commendations"]:
+            state.set(True)
+        else:
+            state.set(False)
+
+    nametapeEntry.delete(0, END)
+    nametapeEntry.insert(0, shirtdata["name-text"])
+
+    goldenApelState.set(shirtdata["apel-medal"])
+
+    generateButtonAction()
+
+def loadButtonAction():
+    pathToShirt = filedialog.askopenfilename(filetypes=[("PNG Image", "*.png"), ("All Files", "*.*")])
+    if not pathToShirt:
+        return
+    shirtImage = PILImage.open(pathToShirt)
+    loadShirtFromMeta(shirtImage)
+
+loadButton = ttk.Button(root, text="Load from shirt image file", command=loadButtonAction)
+loadButton.pack()
+
 def generateButtonAction():
     """The function ran when the Generate button is clicked. Handles grabbing input, getting the ribbon image, scaling it for display, and setting global functions to store the image."""
-    selectedRibbons = [a[1] for a in ribbons.items() if ribbonCheckboxStates[a[0]].get()]
-    selectedCommendations = [a[1] for a in commendations.items() if commendationCheckboxStates[a[0]].get()]
+    selectedRibbons = {a[0]: a[1] for a in ribbons.items() if ribbonCheckboxStates[a[0]].get()}
+    selectedCommendations = {a[0]: a[1] for a in commendations.items() if commendationCheckboxStates[a[0]].get()}
     nameText = "".join(character for character in nametapeEntry.get() if character.isalnum() or character == " ").upper() # convert to only uppercase letters and spaces
     goldenApel: bool = goldenApelState.get()
     
+    global shirtMeta
+    shirtMeta = {
+        "ribbons": list(selectedRibbons.keys()),
+        "commendations": list(selectedCommendations.keys()),
+        "name-text": nameText,
+        "apel-medal": goldenApel
+    }
+
+    # global to prevent garbage collection of image
     global img
-    img = generateTShirtImage(selectedRibbons, selectedCommendations, nameText, goldenApel)
+    img = generateTShirtImage(list(selectedRibbons.values()), list(selectedCommendations.values()), nameText, goldenApel)
     photo = ImageOps.scale(img, 2)
     photo = ImageTk.PhotoImage(photo)
     imageLabel.configure(image=photo)
@@ -110,7 +160,9 @@ def saveButtonAction():
     saveFilePath = filedialog.asksaveasfilename(filetypes=[("Portable Network Graphics file", "*.png"), ("All Files", "*.*")], title="Save Ribbons T-Shirt", defaultextension=".png")
     if not saveFilePath:
         return
-    img.save(saveFilePath)
+    meta = img.getexif()
+    meta[PILImage.ExifTags.Base.ImageDescription] = json.dumps(shirtMeta)
+    img.save(saveFilePath, exif=meta)
 
 saveButton = ttk.Button(root, text="Save T-Shirt", command=saveButtonAction)
 saveButton.pack()
